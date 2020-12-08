@@ -30,13 +30,13 @@ from functions.entertainment import entertainmentService
 from functions.request import sendRequest
 from functions.lightRequest import sendLightRequest, syncWithLights
 from functions.updateGroup import updateGroupStats
-from protocols import protocols, yeelight, tasmota, shelly, native_single, native_multi, esphome, mqtt, hyperion
+from protocols import protocols, yeelight, tasmota, shelly, homeassistant_ws, native_single, native_multi, esphome, mqtt, hyperion
 from functions.remoteApi import remoteApi
 from functions.remoteDiscover import remoteDiscover
 
 update_lights_on_startup = False # if set to true all lights will be updated with last know state on startup.
 off_if_unreachable = False # If set to true all lights that unreachable are marked as off.
-protocols = [yeelight, tasmota, shelly, native_single, native_multi, esphome, hyperion]
+protocols = [yeelight, tasmota, shelly, homeassistant_ws, native_single, native_multi, esphome, hyperion]
 
 ap = argparse.ArgumentParser()
 
@@ -255,6 +255,10 @@ def updateConfig():
 
     if "mqtt" not in bridge_config["emulator"]:
         bridge_config["emulator"]["mqtt"] = { "discoveryPrefix": "homeassistant", "enabled": False, "mqttPassword": "", "mqttPort": 1883, "mqttServer": "mqtt", "mqttUser": ""}
+
+    if "homeassistant" not in bridge_config["emulator"]:
+        bridge_config["emulator"]["homeassistant"] = { "enabled": False, "homeAssistantIp": "127.0.0.1", "homeAssistantPort": 8123, "homeAssistantToken": "", "homeAssistantIncludeByDefault": False}
+
 
     if "Remote API enabled" not in bridge_config["config"]:
         bridge_config["config"]["Remote API enabled"] = False
@@ -734,6 +738,7 @@ def scan_for_lights(): #scan for ESP8266 lights and strips
     Thread(target=yeelight.discover, args=[bridge_config, new_lights]).start()
     Thread(target=tasmota.discover, args=[bridge_config, new_lights]).start()
     Thread(target=shelly.discover, args=[bridge_config, new_lights]).start()
+    Thread(target=homeassistant_ws.discover, args=[bridge_config, new_lights]).start()
     Thread(target=esphome.discover, args=[bridge_config, new_lights]).start()
     Thread(target=mqtt.discover, args=[bridge_config, new_lights]).start()
     Thread(target=hyperion.discover, args=[bridge_config, new_lights]).start()
@@ -1956,6 +1961,9 @@ if __name__ == "__main__":
         scanDeconz()
     if "emulator" in bridge_config and "mqtt" in bridge_config["emulator"] and bridge_config["emulator"]["mqtt"]["enabled"]:
         mqtt.mqttServer(bridge_config["emulator"]["mqtt"], bridge_config["lights"], bridge_config["lights_address"], bridge_config["sensors"])
+    if "emulator" in bridge_config and "homeassistant" in bridge_config["emulator"] and bridge_config["emulator"]["homeassistant"]["enabled"]:
+        homeassistant_ws.create_ws_client(bridge_config["emulator"]["homeassistant"], bridge_config["lights"], bridge_config["lights_address"], bridge_config["sensors"])
+
     try:
         if update_lights_on_startup:
             Thread(target=updateAllLights).start()

@@ -583,6 +583,13 @@
         "mqttPort": 1883,
         "mqttServer": "mqtt",
         "mqttUser": ""
+    },
+    "homeassistant": {
+      "enabled": false,
+      "homeAssistantIp": "127.0.0.1", 
+      "homeAssistantPort": 8123, 
+      "homeAssistantToken": "",
+      "homeAssistantIncludeByDefault": true
     }
    },
    "groups":{
