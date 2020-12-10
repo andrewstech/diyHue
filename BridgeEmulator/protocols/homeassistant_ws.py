@@ -2,12 +2,14 @@ import json
 import logging
 import time
 import random
+import threading
 
 from ws4py.client.threadedclient import WebSocketClient
 from functions import light_types, nextFreeId
 from functions.colors import hsv_to_rgb
 
-
+discovery_timeout_seconds = 60
+discovery_result = threading.Event()
 next_connection_error_log = 0
 logging_backoff = 2 # 2 Second back off
 homeassistant_token = ''
@@ -54,7 +56,7 @@ class HomeAssistantClient(WebSocketClient):
                 home_assistant_state['state'] = 'unavailable'
 
     def received_message(self, m):
-        logging.debug("Received message: {}".format(m))
+        # logging.debug("Received message: {}".format(m))
         message_text = m.data.decode(m.encoding)
         message = json.loads(message_text)
         if message.get('type', None) == "auth_required":
@@ -89,6 +91,7 @@ class HomeAssistantClient(WebSocketClient):
         self.subscribe_for_updates()
 
     def get_all_lights(self):
+        discovery_result.clear()
         payload = {
             'type' : 'get_states'
         }
@@ -156,6 +159,7 @@ class HomeAssistantClient(WebSocketClient):
                             logging.info(f"Found {entity_id}")
                             discovered_devices[entity_id] = x
                             latest_states[entity_id] = x
+                discovery_result.set()
 
     def do_event(self, message):
         try:
@@ -192,7 +196,7 @@ class HomeAssistantClient(WebSocketClient):
                 should_include = True
             else:
                 should_include = False
-        logging.debug("Home Asssitant Web Socket should include? {} - Include By Default? {}, Attribute: {} - State {}".format(should_include, include_by_default, diy_hue_flag, new_state))
+#        logging.debug("Home Asssitant Web Socket should include? {} - Include By Default? {}, Attribute: {} - State {}".format(should_include, include_by_default, diy_hue_flag, new_state))
         return should_include
 
 
@@ -250,12 +254,16 @@ def discover(bridge_config, new_lights):
     logging.info("HomeAssistant WebSocket discovery called")
     connect_if_required()
     ws.get_all_lights()
+    logging.info("HomeAssistant WebSocket discovery waiting for devices")
+    timed_out = discovery_result.wait(timeout=discovery_timeout_seconds)
+    logging.info("HomeAssistant WebSocket discovery devices received, timeout? {}".format(timed_out))
     # Give the call a chance to return
-    time.sleep(15)
+    # time.sleep(15)
     # This only loops over discovered devices so we have already filtered out what we don't want
-    for entity_id, data in discovered_devices.items():
+    for entity_id in discovered_devices.keys():
+        ha_state = latest_states[entity_id]
         device_new = True
-        light_name = data["attributes"]["friendly_name"] if data["attributes"]["friendly_name"] is not None else entity_id
+        light_name = ha_state["attributes"]["friendly_name"] if ha_state["attributes"]["friendly_name"] is not None else entity_id
 
         for lightkey in bridge_config["lights_address"].keys():
             if bridge_config["lights_address"][lightkey]["protocol"] == "homeassistant_ws":
@@ -276,7 +284,7 @@ def discover(bridge_config, new_lights):
             SUPPORT_COLOR = 16
             SUPPORT_TRANSITION = 32
             SUPPORT_WHITE_VALUE = 128
-            supported_features = data['attributes']['supported_features']
+            supported_features = ha_state['attributes']['supported_features']
 
             model_id = None
             if supported_features & SUPPORT_COLOR:
@@ -288,8 +296,10 @@ def discover(bridge_config, new_lights):
             else:
                 model_id = "HomeAssistant-Switch"
 
+            diyhue_state = translate_homeassistant_state_to_diyhue_state(ha_state)
+
             bridge_config["lights"][new_light_id] = {
-                "state": light_types[model_id]["state"],
+                "state": diyhue_state,
                 "type": light_types[model_id]["type"],
                 "name": light_name,
                 "uniqueid": "4a:e0:ad:7f:cf:" + str(
@@ -349,31 +359,32 @@ def translate_homeassistant_state_to_diyhue_state(ha_state):
     '''
 
     reachable = False
-    state = 'off'
-    if "state" in ha_state and homeassistant_state['state'] in ['on','off']:
+    is_on = False
+    if "state" in ha_state and ha_state['state'] in ['on','off']:
         reachable = True
-        state = homeassistant_state['state'] == 'on' 
+        is_on = ha_state['state'] == 'on'
 
     diyhue_state = {
         "alert": "none",
         "mode": "homeautomation",
         "effect": "none",
         "reachable": reachable,
-        "state": state
+        "on": is_on
     }
 
     if "attributes" in ha_state:
         for key, value in ha_state['attributes'].items():
             if key == "brightness":
                 diyhue_state['bri'] = value
-            if key == "color_temp"":
+            if key == "color_temp":
                 diyhue_state['ct'] = value
                 diyhue_state['colormode'] = 'ct'
             if key == "xy_color":
                 diyhue_state['xy'] = [value[0], value[1]]
                 diyhue_state['colormode'] = 'xy'
 
-    return state
+#    logging.info("Translate, in state {}, out state: {}".format(ha_state, diyhue_state))
+    return diyhue_state
 
 def set_light(address, light, data):
     connect_if_required()            
@@ -385,24 +396,4 @@ def get_light_state(address, light):
         return { 'reachable': False }
 
     homeassistant_state = latest_states[address['entity_id']]
-
-    if homeassistant_state['state'] not in ['on','off']:
-        return { 'reachable': False }
-
-    state = { 'reachable': True }
-    state['on'] = homeassistant_state['state'] == 'on'
-    if homeassistant_state['state'] == 'off':
-        return state
-            
-    # If we get here the light is ON
-    attributes = homeassistant_state['attributes']
-    if attributes:
-        if "brightness" in attributes:
-            state['bri'] = attributes["brightness"]
-        if "color_temp" in attributes:
-            state["colormode"] = "ct"
-            state['ct'] = attributes["color_temp"]
-        if "xy_color" in attributes:
-            state["colormode"] = "xy"
-            state['xy'] = attributes["xy_color"]
-    return state
+    return translate_homeassistant_state_to_diyhue_state(homeassistant_state)
