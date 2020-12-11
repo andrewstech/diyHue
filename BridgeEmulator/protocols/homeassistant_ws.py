@@ -14,10 +14,9 @@ next_connection_error_log = 0
 logging_backoff = 2 # 2 Second back off
 homeassistant_token = ''
 homeassistant_url = 'ws://127.0.0.1:8123/api/websocket'
-ws = None
+homeassistant_ws_client = None
 include_by_default = False
 
-discovered_devices = {}
 # This is Home Assistant States so looks like this:
 # {
 #   'entity_id': 'light.my_light',
@@ -50,7 +49,6 @@ class HomeAssistantClient(WebSocketClient):
 
     def closed(self, code, reason=None):
         logging.info("Home Assistant WebSocket Connection Closed. Code: {} Reason {}".format(code, reason))
-        discovered_devices.clear()
         for home_assistant_state in latest_states.values():
             if 'state' in home_assistant_state:
                 home_assistant_state['state'] = 'unavailable'
@@ -142,8 +140,7 @@ class HomeAssistantClient(WebSocketClient):
                 service_data['transition'] = value / 10
 
         if color_from_hsv:
-            color = hsv_to_rgb(data['hue'], data['sat'], light["state"]["bri"])
-            service_data['rgb_color'] = { 'r': color[0], 'g': color[1], 'b': color[2] }
+            service_data['hs_color'] = [data['hue'], data['sat']]
 
         self._send_with_id(payload, "service")
 
@@ -152,11 +149,11 @@ class HomeAssistantClient(WebSocketClient):
         if 'result' in message and message['result']:
             message_type = self.id_to_type.pop(message['id'])
             if message_type == "getstates":
+                latest_states.clear()
                 for ha_state in message['result']:
                     if self._should_include(ha_state):
                         entity_id = ha_state.get('entity_id', None)
                         logging.info(f"Found {entity_id}")
-                        discovered_devices[entity_id] = ha_state
                         latest_states[entity_id] = ha_state
                 discovery_result.set()
 
@@ -211,31 +208,31 @@ class HomeAssistantClient(WebSocketClient):
         self.send(json_payload)        
 
 def connect_if_required():
-    if ws is None or ws.client_terminated: 
+    if homeassistant_ws_client is None or homeassistant_ws_client.client_terminated: 
         create_websocket_client()        
 
 def create_websocket_client():
-    global ws
+    global homeassistant_ws_client
     global next_connection_error_log
     global logging_backoff
     if time.time() >= next_connection_error_log:
         logging.warning("Home Assistant Web Socket Client disconnected trying to (re)connect")
 
     try:
-        ws = HomeAssistantClient(home_assistant_url, protocols=['http-only', 'chat'])
-        ws.connect()
+        homeassistant_ws_client = HomeAssistantClient(homeassistant_url, protocols=['http-only', 'chat'])
+        homeassistant_ws_client.connect()
         logging.info("Home Assistant Web Socket Client connected")
     except:
         if time.time() >= next_connection_error_log:
             logging.exception("Error connecting to Home Assistant WebSocket")
             next_connection_error_log = time.time() + logging_backoff
             logging_backoff = logging_backoff * 2
-        ws = None
+        homeassistant_ws_client = None
 
 
 def create_ws_client(config, lights, adresses, sensors):
     global homeassistant_token
-    global home_assistant_url
+    global homeassistant_url
     global include_by_default
     if config['homeAssistantIp'] is not None:
         homeassistant_ip = config['homeAssistantIp']
@@ -246,19 +243,19 @@ def create_ws_client(config, lights, adresses, sensors):
     if config['homeAssistantIncludeByDefault'] is not None:
         include_by_default = config['homeAssistantIncludeByDefault']
 
-    home_assistant_url = f'ws://{homeassistant_ip}:{homeAssistant_port}/api/websocket'
+    homeassistant_url = f'ws://{homeassistant_ip}:{homeAssistant_port}/api/websocket'
     connect_if_required()
 
 
 def discover(bridge_config, new_lights):
     logging.info("HomeAssistant WebSocket discovery called")
     connect_if_required()
-    ws.get_all_lights()
+    homeassistant_ws_client.get_all_lights()
     logging.info("HomeAssistant WebSocket discovery waiting for devices")
     completed = discovery_result.wait(timeout=discovery_timeout_seconds)
     logging.info("HomeAssistant WebSocket discovery devices received, timeout? {}".format((not completed)))
     # This only loops over discovered devices so we have already filtered out what we don't want
-    for entity_id in discovered_devices.keys():
+    for entity_id in latest_states.keys():
         ha_state = latest_states[entity_id]
         device_new = True
         light_name = ha_state["attributes"]["friendly_name"] if ha_state["attributes"]["friendly_name"] is not None else entity_id
@@ -386,12 +383,12 @@ def translate_homeassistant_state_to_diyhue_state(ha_state):
 
 def set_light(address, light, data):
     connect_if_required()            
-    ws.change_light(address, light, data)
+    homeassistant_ws_client.change_light(address, light, data)
 
 def get_light_state(address, light):
     connect_if_required()
-    if latest_states[address['entity_id']] is None:
+    entity_id = address.get('entity_id', None)
+    if entity_id is None:
         return { 'reachable': False }
-
-    homeassistant_state = latest_states[address['entity_id']]
+    homeassistant_state = latest_states[entity_id]
     return translate_homeassistant_state_to_diyhue_state(homeassistant_state)
