@@ -255,10 +255,8 @@ def discover(bridge_config, new_lights):
     connect_if_required()
     ws.get_all_lights()
     logging.info("HomeAssistant WebSocket discovery waiting for devices")
-    timed_out = discovery_result.wait(timeout=discovery_timeout_seconds)
-    logging.info("HomeAssistant WebSocket discovery devices received, timeout? {}".format(timed_out))
-    # Give the call a chance to return
-    # time.sleep(15)
+    completed = discovery_result.wait(timeout=discovery_timeout_seconds)
+    logging.info("HomeAssistant WebSocket discovery devices received, timeout? {}".format((not completed)))
     # This only loops over discovered devices so we have already filtered out what we don't want
     for entity_id in discovered_devices.keys():
         ha_state = latest_states[entity_id]
