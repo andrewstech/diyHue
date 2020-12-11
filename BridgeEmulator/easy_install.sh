@@ -50,7 +50,7 @@ rm -rf ws4py.zip WebSocket-for-Python-0.3.4/
 
 ### installing hue emulator
 echo -e "\033[36m Installing Hue Emulator.\033[0m"
-curl -sL https://github.com/diyhue/diyHue/archive/master.zip -o diyHue.zip
+curl -sL https://github.com/andrewstech/diyHue/blob/HomeAssistant_Integration/archive/master.zip -o diyHue.zip
 unzip -qo diyHue.zip
 cd diyHue-master/BridgeEmulator/
 
