@@ -152,13 +152,12 @@ class HomeAssistantClient(WebSocketClient):
         if 'result' in message and message['result']:
             message_type = self.id_to_type.pop(message['id'])
             if message_type == "getstates":
-                for x in message['result']:
-                    entity_id = x.get('entity_id', None)
-                    if entity_id and entity_id.startswith('light.'):
-                        if self._should_include(x):
-                            logging.info(f"Found {entity_id}")
-                            discovered_devices[entity_id] = x
-                            latest_states[entity_id] = x
+                for ha_state in message['result']:
+                    if self._should_include(ha_state):
+                        entity_id = ha_state.get('entity_id', None)
+                        logging.info(f"Found {entity_id}")
+                        discovered_devices[entity_id] = ha_state
+                        latest_states[entity_id] = ha_state
                 discovery_result.set()
 
     def do_event(self, message):
@@ -173,29 +172,30 @@ class HomeAssistantClient(WebSocketClient):
         try:
             entity_id = message['event']['data']['entity_id']
             new_state = message['event']['data']['new_state']
-            if entity_id.startswith("light."):
-                if self._should_include(new_state):
-                    logging.debug("State update recevied for {}, new state {}".format(entity_id, new_state))
-                    latest_states[entity_id] = new_state
+            if self._should_include(new_state):
+                logging.debug("State update recevied for {}, new state {}".format(entity_id, new_state))
+                latest_states[entity_id] = new_state
         except KeyError as e:
             logging.exception("No state in event: {}", message)
 
-    def _should_include(self, new_state):
+    def _should_include(self, ha_state):
         should_include = False
         diy_hue_flag = None
-        if 'attributes' in new_state and 'diyhue' in new_state['attributes']:
-            diy_hue_flag = new_state['attributes']['diyhue']
+        entity_id = ha_state.get('entity_id', None)
+        if entity_id.startswith("light."):
+            if 'attributes' in ha_state and 'diyhue' in ha_state['attributes']:
+                diy_hue_flag = ha_state['attributes']['diyhue']
 
-        if include_by_default:
-            if diy_hue_flag is not None and diy_hue_flag == "exclude":
-                should_include = False
+            if include_by_default:
+                if diy_hue_flag is not None and diy_hue_flag == "exclude":
+                    should_include = False
+                else:
+                    should_include = True
             else:
-                should_include = True
-        else:
-            if diy_hue_flag is not None and diy_hue_flag == "include":
-                should_include = True
-            else:
-                should_include = False
+                if diy_hue_flag is not None and diy_hue_flag == "include":
+                    should_include = True
+                else:
+                    should_include = False
 #        logging.debug("Home Asssitant Web Socket should include? {} - Include By Default? {}, Attribute: {} - State {}".format(should_include, include_by_default, diy_hue_flag, new_state))
         return should_include
 
