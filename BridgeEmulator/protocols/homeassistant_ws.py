@@ -294,14 +294,16 @@ def discover(bridge_config, new_lights):
             diyhue_state = translate_homeassistant_state_to_diyhue_state(ha_state)
 
             bridge_config["lights"][new_light_id] = {
-                "state": diyhue_state,
                 "type": light_types[model_id]["type"],
                 "name": light_name,
                 "uniqueid": "4a:e0:ad:7f:cf:" + str(
                     random.randrange(0, 99)) + "-1",
-                "modelid": model_id, 
-                "manufacturername": "Home Assistant",
-                "swversion": light_types[model_id]["swversion"]
+                "modelid": light_types[model_id]["modelid"], 
+                "manufacturername": light_types[model_id]["manufacturername"],
+                "swversion": light_types[model_id]["swversion"],
+                "capabilities": light_types[model_id]["capabilities"],
+                "config": light_types[model_id]["config"],
+                "state": diyhue_state,
             }
             new_lights.update({new_light_id: {"name": light_name}})
             bridge_config["lights_address"][new_light_id] = {

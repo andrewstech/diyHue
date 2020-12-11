@@ -49,20 +49,26 @@ light_types["LTW001"]["capabilities"] = {"certified": True,"control": {"mindimle
 light_types["Plug 01"] = {"type": "On/Off plug-in unit", "swversion": "V1.04.12"}
 light_types["Plug 01"]["state"] = {"on": False, "alert": "none", "reachable": True}
 
-light_types["HomeAssistant-RGB"] = {"type": "Extended color light", "swversion": "5.130.1.30000", "manufacturername": "Signify Netherlands B.V.", "modelid" : "LCT007"}
-light_types["HomeAssistant-RGB"]["state"] = {"on": False, "bri": 254, "hue": 0, "sat": 0, "xy": [0.0, 0.0], "alert": "none", "effect": "none", "colormode": "xy", "reachable": True}
+# The Home Assistant below mimic Hue Bulbs to provide better compatability
+# HomeAssistant-RGB is a Hue White + Colour Ambience
+light_types["HomeAssistant-RGB"] = {"type": "Extended color light", "swversion": "1.50.2_r30933", "manufacturername": "Signify Netherlands B.V.", "modelid" : "LCT015", "productname": "Hue color lamp", "productid": "Philips-LCT015-1-A19ECLv5"}
 light_types["HomeAssistant-RGB"]["config"] = {"archetype": "sultanbulb", "function": "mixed", "direction": "omnidirectional"}
-light_types["HomeAssistant-RGB"]["capabilities"] = {"certified": True,"control": {"colorgamut": [[0.6915,0.3083],[0.17,0.7],[0.1532,0.0475]],"colorgamuttype": "C","ct": {"max": 500,"min": 153},"maxlumen": 800,"mindimlevel": 1000},"streaming": {"proxy": False,"renderer": True}}
+light_types["HomeAssistant-RGB"]["capabilities"] = {"certified": True,"control": {"colorgamut": [[0.6915,0.3083],[0.17,0.7],[0.1532,0.0475]],"colorgamuttype": "C","ct": {"max": 500,"min": 153},"maxlumen": 800,"mindimlevel": 1000},"streaming": {"proxy": True,"renderer": True}}
 
-# TODO fix this
-light_types["HomeAssistant-WhiteAmbiance"] = {"type": "Extended color light", "swversion": "1.46.13_r26312", "manufacturername": "Home Assistant"}
-light_types["HomeAssistant-WhiteAmbiance"]["state"] = {"on": False, "bri": 254, "hue": 0, "sat": 0, "xy": [0.0, 0.0], "alert": "none", "effect": "none", "colormode": "xy", "reachable": True}
-light_types["HomeAssistant-WhiteAmbiance"]["config"] = {"archetype": "sultanbulb", "function": "mixed", "direction": "omnidirectional"}
+# HomeAssistant-WhiteAmbiance is a Hue White Ambience
+light_types["HomeAssistant-WhiteAmbiance"] = {"type": "Color temperature light", "swversion": "5.130.1.30000", "manufacturername": "Signify Netherlands B.V.", "modelid" : "LTW001", "productname": "Hue ambiance lamp"}
+light_types["HomeAssistant-WhiteAmbiance"]["config"] = {"archetype": "sultanbulb", "function": "functional", "direction": "omnidirectional"}
+light_types["HomeAssistant-WhiteAmbiance"]["capabilities"] = {"certified": True, "control": {"mindimlevel": 1000,"maxlumen": 806,"ct": {"min": 153,"max": 454}}, "streaming": {"renderer": False,"proxy": False}}
 
-light_types["HomeAssistant-Dimmable"] = {"type": "Dimmable light", "swversion": "1.46.13_r26312", "manufacturername": "Home Assistant"}
-light_types["HomeAssistant-Dimmable"]["state"] = {"on": False, "bri": 254,"alert": "none", "reachable": True}
-light_types["HomeAssistant-Dimmable"]["config"] = {"archetype": "classicbulb", "function": "mixed", "direction": "omnidirectional"}
+# HomeAssistant-Dimmable is a Hue White
+light_types["HomeAssistant-Dimmable"] = {"type": "Dimmable light", "swversion": "5.130.1.30000", "manufacturername": "Signify Netherlands B.V.", "modelid" : "LWB006", "productname": "Hue white lamp"}
+light_types["HomeAssistant-Dimmable"]["config"] = {"archetype": "classicbulb", "function": "functional", "direction": "omnidirectional"}
+light_types["HomeAssistant-Dimmable"]["capabilities"] = {"certified": True, "control": { "maxlumen": 800, "mindimlevel": 2000}, "streaming": { "proxy": False, "renderer": False }}
 
-light_types["HomeAssistant-Switch"] = {"type": "On/Off plug-in unit", "swversion": "V1.04.12", "manufacturername": "Home Assistant"}
-light_types["HomeAssistant-Switch"]["state"] = {"on": False, "alert": "none", "reachable": True}
-light_types["HomeAssistant-Switch"]["config"] = {"archetype": "classicbulb", "function": "mixed", "direction": "omnidirectional"}
+# HomeAssistant-Switch is a Hue plug in unit
+light_types["HomeAssistant-Switch"] = {"type": "On/Off plug-in unit", "swversion": "1.65.9_hB3217DF", "manufacturername": "Signify Netherlands B.V.", "modelid" : "LOM001", "productname": "Hue Smart plug", "productid": "SmartPlug_OnOff_v01-00_01"}
+light_types["HomeAssistant-Switch"]["config"] = {"archetype": "plug", "function": "functional", "direction": "omnidirectional"}
+light_types["HomeAssistant-Switch"]["capabilities"] = {"certified": True, "control": {}, "streaming": { "renderer": False, "proxy": False }}
+
+
+
